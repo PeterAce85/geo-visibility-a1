@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aceable LLM Visibility Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .dashboard {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+            backdrop-filter: blur(10px);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .header h1 {
+            color: #2c3e50;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header p {
+            color: #7f8c8d;
+            font-size: 1.1rem;
+        }
+
+        .data-input-section {
+            background: #e8f5e8;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            border-left: 5px solid #28a745;
+        }
+
+        .data-input-section h3 {
+            color: #155724;
+            margin-bottom: 15px;
+        }
+
+        .data-input-section textarea {
+            width: 100%;
+            height: 120px;
+            padding: 10px;
+            border: 2px solid #28a745;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            font-size: 12px;
+            font-family: monospace;
+        }
+
+        .data-input-section button {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin-right: 10px;
+        }
+
+        .data-input-section button:hover {
+            background: #218838;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .metric-card {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border-left: 5px solid;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+        }
+
+        .metric-card.positive { border-left-color: #27ae60; }
+        .metric-card.neutral { border-left-color: #f39c12; }
+        .metric-card.negative { border-left-color: #e74c3c; }
+        .metric-card.mentions { border-left-color: #3498db; }
+
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .metric-label {
+            color: #7f8c8d;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .charts-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .chart-container {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .chart-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #2c3e50;
+        }
+
+        .recent-activity {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .activity-item {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            border-bottom: 1px solid #f0f0f0;
+            transition: background-color 0.3s ease;
+        }
+
+        .activity-item:hover {
+            background-color: #f8f9fa;
+        }
+
+        .activity-item:last-child {
+            border-bottom: none;
+        }
+
+        .llm-badge {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-right: 15px;
+            min-width: 80px;
+            text-align: center;
+        }
+
+        .llm-badge.openai { background: #10a37f; color: white; }
+        .llm-badge.perplexity { background: #20b2aa; color: white; }
+        .llm-badge.gemini { background: #4285f4; color: white; }
+
+        .sentiment-indicator {
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-left: auto;
+        }
+
+        .sentiment-indicator.positive { background: #d4edda; color: #155724; }
+        .sentiment-indicator.neutral { background: #fff3cd; color: #856404; }
+        .sentiment-indicator.negative { background: #f8d7da; color: #721c24; }
+
+        .activity-content {
+            flex: 1;
+        }
+
+        .activity-query {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        .activity-preview {
+            color: #7f8c8d;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        .last-updated {
+            text-align: center;
+            color: #7f8c8d;
+            font-size: 0.9rem;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #f0f0f0;
+        }
+
+        .instructions {
+            background: #cce5ff;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border-left: 4px solid #007bff;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border-left: 5px solid #e74c3c;
+        }
+
+        @media (max-width: 768px) {
+            .charts-section {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .dashboard {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="header">
+            <h1>🚗 Aceable LLM Visibility Dashboard</h1>
+            <p>Monitor how Aceable appears across AI platforms</p>
+        </div>
+
+        <div class="data-input-section" id="dataInputSection">
+            <h3>📊 Load Your Data</h3>
+            
+            <div class="instructions">
+                <strong>How to get your data:</strong><br>
+                1. Go to your Google Sheet → File → Download → Comma Separated Values (.csv)<br>
+                2. Open the downloaded CSV file in a text editor<br>
+                3. Copy ALL the content and paste it in the box below<br>
+                4. Click "Load Dashboard"
+            </div>
+            
+            <textarea id="csvData" placeholder="Paste your CSV data here...
+Example:
+timestamp,llm,query,mentions,sentiment,response_length,response_preview
+2025-07-31T14:30:00Z,OpenAI,What is Aceable?,3,positive,245,Aceable is a leading online driver education platform...
+2025-07-31T14:30:05Z,Perplexity,What is Aceable?,2,positive,312,Aceable offers state-approved online driving courses..."></textarea>
+            
+            <button onclick="loadCSVData()">📊 Load Dashboard</button>
+            <button onclick="loadSampleData()">🎯 Try Sample Data</button>
+        </div>
+
+        <div id="dashboardContent" style="display: none;">
+            <div class="metrics-grid">
+                <div class="metric-card positive">
+                    <div class="metric-value" style="color: #27ae60;" id="positivePercent">0%</div>
+                    <div class="metric-label">Positive Sentiment</div>
+                </div>
+                <div class="metric-card neutral">
+                    <div class="metric-value" style="color: #f39c12;" id="neutralPercent">0%</div>
+                    <div class="metric-label">Neutral Sentiment</div>
+                </div>
+                <div class="metric-card negative">
+                    <div class="metric-value" style="color: #e74c3c;" id="negativePercent">0%</div>
+                    <div class="metric-label">Negative Sentiment</div>
+                </div>
+                <div class="metric-card mentions">
+                    <div class="metric-value" style="color: #3498db;" id="totalMentions">0</div>
+                    <div class="metric-label">Total Mentions</div>
+                </div>
+            </div>
+
+            <div class="charts-section">
+                <div class="chart-container">
+                    <div class="chart-title">📈 Sentiment Distribution</div>
+                    <canvas id="sentimentChart" width="400" height="200"></canvas>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-title">🤖 Performance by LLM Platform</div>
+                    <canvas id="llmChart" width="400" height="200"></canvas>
+                </div>
+            </div>
+
+            <div class="recent-activity">
+                <div class="activity-header">
+                    <h2 class="chart-title">🔍 Recent Query Results</h2>
+                </div>
+                <div id="activityFeed">
+                    <div class="loading">Loading recent activity...</div>
+                </div>
+            </div>
+
+            <button onclick="showDataInput()" style="margin-top: 20px; padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                🔄 Load New Data
+            </button>
+        </div>
+
+        <div class="last-updated" id="lastUpdated" style="display: none;">
+            Last updated: <span id="updateTime"></span>
+        </div>
+    </div>
+
+    <script>
+        let dashboardData = [];
+        let sentimentChart = null;
+        let llmChart = null;
+
+        function loadCSVData() {
+            const csvText = document.getElementById('csvData').value.trim();
+            
+            if (!csvText) {
+                alert('Please paste your CSV data first');
+                return;
+            }
+
+            try {
+                const data = parseCSV(csvText);
+                
+                if (data.length === 0) {
+                    throw new Error('No data rows found. Make sure your CSV has both headers and data rows.');
+                }
+
+                dashboardData = data;
+                renderDashboard();
+                
+                // Hide input section and show dashboard
+                document.getElementById('dataInputSection').style.display = 'none';
+                document.getElementById('dashboardContent').style.display = 'block';
+                
+            } catch (error) {
+                alert('Error parsing CSV data: ' + error.message + '\n\nMake sure your CSV is properly formatted with headers in the first row.');
+            }
+        }
+
+        function loadSampleData() {
+            // Load sample data to test the dashboard
+            dashboardData = [
+                {timestamp: '2025-07-31T14:30:00Z', llm: 'OpenAI', query: 'What is Aceable?', mentions: '3', sentiment: 'positive', response_length: '245', response_preview: 'Aceable is a leading online driver education platform that offers state-approved courses for teens and adults. The company provides interactive video lessons, practice tests, and certificate programs that meet DMV requirements across multiple states.'},
+                {timestamp: '2025-07-31T14:30:05Z', llm: 'Perplexity', query: 'What is Aceable?', mentions: '2', sentiment: 'positive', response_length: '312', response_preview: 'Aceable offers state-approved online driving courses with a mobile-first approach. Their platform includes engaging video content, interactive lessons, and progress tracking features that make learning convenient and effective.'},
+                {timestamp: '2025-07-31T14:30:10Z', llm: 'Gemini', query: 'What is Aceable?', mentions: '4', sentiment: 'neutral', response_length: '198', response_preview: 'Aceable is a company that provides driver education services through digital platforms. They offer online courses that are approved by various state departments of motor vehicles.'},
+                {timestamp: '2025-07-31T14:31:00Z', llm: 'OpenAI', query: 'Aceable driving courses review', mentions: '5', sentiment: 'positive', response_length: '423', response_preview: 'Aceable has received positive reviews for their interactive approach to driver education. Users appreciate the mobile app functionality, engaging video content, and the ability to learn at their own pace. The courses are well-structured and meet state requirements.'},
+                {timestamp: '2025-07-31T14:31:05Z', llm: 'Perplexity', query: 'Aceable driving courses review', mentions: '3', sentiment: 'positive', response_length: '356', response_preview: 'Users generally rate Aceable courses highly for their convenience and quality. The platform is praised for its user-friendly interface, comprehensive content, and reliable customer support. Most students successfully complete their certification.'},
+                {timestamp: '2025-07-31T14:31:10Z', llm: 'Gemini', query: 'Aceable driving courses review', mentions: '2', sentiment: 'neutral', response_length: '287', response_preview: 'Aceable provides online driver education with mixed user feedback. While some users appreciate the convenience, others prefer traditional in-person instruction methods.'},
+                {timestamp: '2025-07-31T14:32:00Z', llm: 'OpenAI', query: 'Aceable vs other driving schools', mentions: '4', sentiment: 'positive', response_length: '389', response_preview: 'Aceable stands out from traditional driving schools with its mobile-first approach and flexible scheduling. Unlike brick-and-mortar schools, Aceable allows students to learn anytime, anywhere, making it particularly appealing to busy teens and adults.'},
+                {timestamp: '2025-07-31T14:32:05Z', llm: 'Perplexity', query: 'Aceable vs other driving schools', mentions: '3', sentiment: 'neutral', response_length: '278', response_preview: 'Compared to traditional driving schools, Aceable offers more flexibility but may lack the hands-on interaction some students prefer. The choice depends on individual learning preferences.'},
+                {timestamp: '2025-07-31T14:32:10Z', llm: 'Gemini', query: 'Aceable vs other driving schools', mentions: '1', sentiment: 'negative', response_length: '156', response_preview: 'Some students find online platforms like Aceable less engaging than traditional classroom settings with instructors.'}
+            ];
+            
+            renderDashboard();
+            
+            // Hide input section and show dashboard
+            document.getElementById('dataInputSection').style.display = 'none';
+            document.getElementById('dashboardContent').style.display = 'block';
+        }
+
+        function showDataInput() {
+            document.getElementById('dataInputSection').style.display = 'block';
+            document.getElementById('dashboardContent').style.display = 'none';
+        }
+
+        function parseCSV(csvText) {
+            const lines = csvText.trim().split('\n');
+            if (lines.length < 2) {
+                throw new Error('CSV must have at least a header row and one data row');
+            }
+            
+            const headers = lines[0].split(',').map(h => h.replace(/"/g, '').trim());
+            const data = [];
+
+            for (let i = 1; i < lines.length; i++) {
+                const values = lines[i].split(',').map(v => v.replace(/"/g, '').trim());
+                const row = {};
+                
+                headers.forEach((header, index) => {
+                    row[header] = values[index] || '';
+                });
+                
+                if (row.timestamp && row.timestamp.length > 0) { // Only include rows with data
+                    data.push(row);
+                }
+            }
+
+            return data;
+        }
+
+        function renderDashboard() {
+            try {
+                // Calculate metrics
+                const sentimentCounts = { positive: 0, neutral: 0, negative: 0 };
+                const llmCounts = { OpenAI: 0, Perplexity: 0, Gemini: 0 };
+                let totalMentions = 0;
+
+                dashboardData.forEach(row => {
+                    if (row.sentiment) {
+                        sentimentCounts[row.sentiment] = (sentimentCounts[row.sentiment] || 0) + 1;
+                    }
+                    if (row.llm) {
+                        llmCounts[row.llm] = (llmCounts[row.llm] || 0) + 1;
+                    }
+                    if (row.mentions) {
+                        totalMentions += parseInt(row.mentions) || 0;
+                    }
+                });
+
+                const total = dashboardData.length;
+                
+                // Update metric cards
+                document.getElementById('positivePercent').textContent = 
+                    total > 0 ? Math.round((sentimentCounts.positive / total) * 100) + '%' : '0%';
+                document.getElementById('neutralPercent').textContent = 
+                    total > 0 ? Math.round((sentimentCounts.neutral / total) * 100) + '%' : '0%';
+                document.getElementById('negativePercent').textContent = 
+                    total > 0 ? Math.round((sentimentCounts.negative / total) * 100) + '%' : '0%';
+                document.getElementById('totalMentions').textContent = totalMentions;
+
+                // Render recent activity first (doesn't depend on Chart.js)
+                renderRecentActivity();
+
+                // Render charts with delay to prevent conflicts
+                setTimeout(() => renderSentimentChart(sentimentCounts), 500);
+                setTimeout(() => renderLLMChart(llmCounts), 1000);
+
+                // Show last updated time
+                document.getElementById('updateTime').textContent = new Date().toLocaleString();
+                document.getElementById('lastUpdated').style.display = 'block';
+                
+            } catch (error) {
+                console.error('Error rendering dashboard:', error);
+                alert('Error rendering dashboard. Please refresh the page and try again.');
+            }
+        }
+
+        function renderSentimentChart(sentimentCounts) {
+            try {
+                const ctx = document.getElementById('sentimentChart');
+                if (!ctx) return;
+                
+                const context = ctx.getContext('2d');
+                
+                if (sentimentChart) {
+                    sentimentChart.destroy();
+                    sentimentChart = null;
+                }
+
+                // Wait a moment before creating new chart
+                setTimeout(() => {
+                    sentimentChart = new Chart(context, {
+                        type: 'doughnut',
+                        data: {
+                            labels: ['Positive', 'Neutral', 'Negative'],
+                            datasets: [{
+                                data: [
+                                    sentimentCounts.positive || 0,
+                                    sentimentCounts.neutral || 0,
+                                    sentimentCounts.negative || 0
+                                ],
+                                backgroundColor: ['#27ae60', '#f39c12', '#e74c3c'],
+                                borderWidth: 2,
+                                borderColor: '#fff'
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: true,
+                            plugins: {
+                                legend: {
+                                    position: 'bottom',
+                                    labels: {
+                                        padding: 20,
+                                        usePointStyle: true
+                                    }
+                                }
+                            },
+                            animation: {
+                                duration: 1000
+                            }
+                        }
+                    });
+                }, 100);
+            } catch (error) {
+                console.error('Error rendering sentiment chart:', error);
+                document.getElementById('sentimentChart').parentElement.innerHTML = 
+                    '<div class="chart-title">📈 Sentiment Distribution</div><div style="padding: 60px; text-align: center; color: #666;">Chart loading error</div>';
+            }
+        }
+
+        function renderLLMChart(llmCounts) {
+            try {
+                const ctx = document.getElementById('llmChart');
+                if (!ctx) return;
+                
+                const context = ctx.getContext('2d');
+                
+                if (llmChart) {
+                    llmChart.destroy();
+                    llmChart = null;
+                }
+
+                // Wait a moment before creating new chart
+                setTimeout(() => {
+                    llmChart = new Chart(context, {
+                        type: 'bar',
+                        data: {
+                            labels: ['OpenAI', 'Perplexity', 'Gemini'],
+                            datasets: [{
+                                label: 'Responses',
+                                data: [
+                                    llmCounts.OpenAI || 0,
+                                    llmCounts.Perplexity || 0,
+                                    llmCounts.Gemini || 0
+                                ],
+                                backgroundColor: ['#10a37f', '#20b2aa', '#4285f4'],
+                                borderRadius: 8,
+                                borderSkipped: false
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: true,
+                            plugins: {
+                                legend: {
+                                    display: false
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        stepSize: 1,
+                                        precision: 0
+                                    },
+                                    grid: {
+                                        color: '#f0f0f0'
+                                    }
+                                },
+                                x: {
+                                    grid: {
+                                        display: false
+                                    }
+                                }
+                            },
+                            animation: {
+                                duration: 1000
+                            }
+                        }
+                    });
+                }, 200);
+            } catch (error) {
+                console.error('Error rendering LLM chart:', error);
+                document.getElementById('llmChart').parentElement.innerHTML = 
+                    '<div class="chart-title">🤖 Performance by LLM Platform</div><div style="padding: 60px; text-align: center; color: #666;">Chart loading error</div>';
+            }
+        }
+
+        function renderRecentActivity() {
+            const activityFeed = document.getElementById('activityFeed');
+            const recentData = dashboardData.slice(-10).reverse(); // Last 10 items, newest first
+
+            if (recentData.length === 0) {
+                activityFeed.innerHTML = '<div class="loading">No activity data found</div>';
+                return;
+            }
+
+            activityFeed.innerHTML = recentData.map(row => `
+                <div class="activity-item">
+                    <div class="llm-badge ${(row.llm || '').toLowerCase()}">${row.llm || 'Unknown'}</div>
+                    <div class="activity-content">
+                        <div class="activity-query">${row.query || 'Unknown query'}</div>
+                        <div class="activity-preview">${(row.response_preview || '').substring(0, 150)}${(row.response_preview || '').length > 150 ? '...' : ''}</div>
+                    </div>
+                    <div class="sentiment-indicator ${row.sentiment || 'neutral'}">${row.sentiment || 'neutral'}</div>
+                </div>
+            `).join('');
+        }
+    </script>
+</body>
+</html>
